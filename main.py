@@ -14,6 +14,7 @@ from ingestion_service import run_daily_ingestion
 from analysis_graph import create_analysis_graph
 from datetime import datetime, timedelta, timezone
 from constants import COUNTRY_MAP
+import pytz
 
 yesterday = datetime.now(timezone.utc) - timedelta(days=1)
 target_date_str = yesterday.strftime('%Y-%m-%d')
@@ -42,11 +43,14 @@ async def run_analysis_pipeline(event_uri: str):
 
 # 1. 백그라운드 스케줄러 함수
 async def daily_scheduler():
+    seoul_tz = pytz.timezone('Asia/Seoul')
     while True:
-        now = datetime.now()
+        # 한국 시간 기준 현재 시각
+        now = datetime.now(seoul_tz)
+        
         # 09:05분이 되면 실행
-        if now.hour ==9 and now.minute == 5:
-            print(f"⏰ [Scheduled Task] 09:05 수집 및 분석 시작!")
+        if now.hour == 9 and now.minute == 1:
+            print(f"⏰ [Scheduled Task] 09:01 수집 및 분석 시작!")
             try:
                 # 1단계: 수집 실행 (수집된 이벤트 URI 리스트를 반환하도록 ingestion_service 수정 필요)
                 event_uris = await run_daily_ingestion() 
