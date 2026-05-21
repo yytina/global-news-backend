@@ -1,11 +1,22 @@
 # database.py
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
+import os
+from urllib.parse import quote_plus
+from dotenv import load_dotenv
+load_dotenv()
 
-DATABASE_URL = "postgresql+asyncpg://postgres:postgres@127.0.0.1:54322/postgres"
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = quote_plus(os.getenv("DB_PASSWORD"))  # 특수문자 안전하게 인코딩
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
 
+SQLALCHEMY_DATABASE_URL = (
+    f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+)
 # 비동기 엔진 생성
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL , echo=True)
 
 # 비동기 세션 생성기 (bind를 비동기 엔진으로 설정)
 AsyncSessionLocal = async_sessionmaker(
