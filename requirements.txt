@@ -1,0 +1,20 @@
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+gunicorn==21.2.0
+
+sqlalchemy==2.0.29
+psycopg2-binary==2.9.9
+greenlet==3.0.3
+
+python-dotenv==1.0.1
+typing-extensions==4.11.0
+
+passlib==1.7.4
+bcrypt==4.1.2
+python-jose[cryptography]==3.3.0
+
+python-multipart==0.0.9
+email-validator==2.2.0
+
+# optional
+orjson==3.10.7
