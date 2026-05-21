@@ -5,6 +5,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Query, Header, Response, Cookie
+from fastapi.middleware.cors import CORSMiddleware
 from logic import calculate_weighted_index
 import crud
 import schemas
@@ -13,7 +14,6 @@ from ingestion_service import run_daily_ingestion
 from analysis_graph import create_analysis_graph
 from datetime import datetime, timedelta, timezone
 from constants import COUNTRY_MAP
-
 
 yesterday = datetime.now(timezone.utc) - timedelta(days=1)
 target_date_str = yesterday.strftime('%Y-%m-%d')
@@ -82,13 +82,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-from fastapi.middleware.cors import CORSMiddleware
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # 테스트용으로 모두 허용
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["http://localhost:5173"], #리액트 서버의 주소 제한
+    allow_credentials=True, #쿠키 포함 허용
+    allow_methods=["*"], #모든 HTTP 메서드 허용(GET,POST,PUT, DELETE)
+    allow_headers=["*"], #모든 header 허용
+    expose_headers=["*"], #응답 헤더 노출
 )
 
 
