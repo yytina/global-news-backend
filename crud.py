@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
 from models import Event, Article, CountryEventAnalysis
 import schemas
+from constants import COUNTRY_MAP
 
 def get_date_from_str(date_str: str):
     try:
@@ -190,6 +191,32 @@ async def get_analyzed_articles_by_event(db: AsyncSession, event_uri: str):
         )
     )
     return result.scalars().all() # scalar()가 아닌 scalars().all()로 객체 리스트 반환
+
+async def get_articles_by_event_and_country(db, event_uri: str, country_code: str):
+    # 1. 입력받은 country_code(예: 'us')에 대응하는 모든 위키피디아 URL 추출
+    target_code = country_code.lower()
+    matched_uris = [
+        wiki_url for wiki_url, code in COUNTRY_MAP.items() 
+        if code == target_code
+    ]
+    
+    # 2. 매핑된 URL이 없을 경우를 대비한 방어 코드
+    if not matched_uris:
+        print(f"⚠️ COUNTRY_MAP에서 해당 국가 코드를 찾을 수 없습니다: {country_code}")
+        return []
+
+    # 3. IN 연산자를 사용하여 쿼리 빌드
+    stmt = (
+        select(Article)
+        .where(
+            Article.event_uri == event_uri,
+            Article.country_uri.in_(matched_uris)  # 🎯 매핑된 모든 URL 조건 수용 (http/https 둘 다 방어)
+        )
+        .order_by(Article.date.desc())
+    )
+    
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 
 from sqlalchemy.dialects.postgresql import insert

@@ -50,6 +50,8 @@ class Article(Base):
     
     # 요약 및 분석 시간
     analysis_summary_en = Column(Text)
+    analysis_summary_kr = Column(Text)
+    
     analyzed_at = Column(DateTime)
     # ------------------------------
 

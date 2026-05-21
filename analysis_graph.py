@@ -74,7 +74,9 @@ async def node_analyze_article(state: GraphState):
         if isinstance(obj, dict): return obj.get(key, default)
         return getattr(obj, key, default)
 
+    # 1. URL 정보 추출 추가
     article_uri = safe_get(article, "uri", "Unknown") 
+    article_url = safe_get(article, "url", "Unknown") # 기사 원문 URL
     country_uri = safe_get(article, "country_uri")
     title = safe_get(article, "title", "No Title")
     body = safe_get(article, "body", "")
@@ -83,21 +85,27 @@ async def node_analyze_article(state: GraphState):
 
     try:
         chain = article_analysis_prompt | model | StrOutputParser()
+        
+        # 2. 템플릿에 article_url 주입
         raw_response = await chain.ainvoke({
             "event_title_main": event.get("title_main", "No Title"),
             "event_summary_main": event.get("summary_main", ""),
-            "article_title": title, 
+            "article_title": title,
+            "article_url": article_url, 
             "article_body": body
         })
         
         cleaned_json = raw_response.replace("```json", "").replace("```", "").strip()
         response = json.loads(cleaned_json)
+        
+        # 3. 데이터 구조 보강
         response["analysis_status"] = "COMPLETED"
         
         return {
             "analysis_results": [{
                 "raw_analysis": response, 
                 "target_uri": article_uri,
+                "source_identity": response.get("source_identity", "Unknown"), # 분석 결과에서 추출
                 "country_code": country_code
             }]
         }
@@ -168,7 +176,8 @@ async def node_save_results(state: dict):
                     score_urge = raw.get("score_urgency", {}).get("score", 0.0) if isinstance(raw.get("score_urgency"), dict) else raw.get("score_urgency", 0.0)
                     score_cred = raw.get("score_credibility", {}).get("score", 0.0) if isinstance(raw.get("score_credibility"), dict) else raw.get("score_credibility", 0.0)
                     score_sens = raw.get("score_sensationalism", {}).get("score", 0.0) if isinstance(raw.get("score_sensationalism"), dict) else raw.get("score_sensationalism", 0.0)
-                    summary_en = raw.get("article_summary_en") or raw.get("summary_en") or ""
+                    summary_en = raw.get("analysis_summary_en") or raw.get("article_summary_en") or raw.get("summary_en") or ""
+                    summary_kr = raw.get("analysis_summary_kr")
                     
                     await session.execute(
                         update(Article)
@@ -180,6 +189,7 @@ async def node_save_results(state: dict):
                             "score_credibility": score_cred,
                             "score_sensationalism": score_sens,
                             "analysis_summary_en": summary_en, 
+                            "analysis_summary_kr": summary_kr, 
                             "analysis_status": "COMPLETED",
                             "analyzed_at": func.now()
                         })

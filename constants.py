@@ -11,6 +11,4 @@ COUNTRY_MAP = {
     "https://en.wikipedia.org/wiki/Germany": "de",
     "https://en.wikipedia.org/wiki/Italy": "it",
     "https://en.wikipedia.org/wiki/Spain": "es",
-
-
 }

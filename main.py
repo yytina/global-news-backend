@@ -14,6 +14,7 @@ from analysis_graph import create_analysis_graph
 from datetime import datetime, timedelta, timezone
 from constants import COUNTRY_MAP
 
+
 yesterday = datetime.now(timezone.utc) - timedelta(days=1)
 target_date_str = yesterday.strftime('%Y-%m-%d')
 
@@ -188,6 +189,29 @@ async def get_country_event_analysis(
         )
         
     return result
+
+@app.get(
+    "/events/{event_uri}/countries/{country_code}/articles", 
+    response_model=schemas.CountryArticlesResponse
+)
+async def get_article_analysis_for_event_country(
+    event_uri: str,
+    country_code: str,
+    db: AsyncSessionLocal = Depends(get_db)
+):
+    # 1. DB에서 조건에 맞는 기사 객체 리스트 조회
+    db_articles = await crud.get_articles_by_event_and_country(db, event_uri, country_code)
+    event = await crud.get_event_by_uri(db, event_uri)
+    event_title = event.title_main if event else event_uri.replace("-", " ").capitalize()
+    # 2. Pydantic 스키마 규격에 맞춰 데이터 리셰이핑(Reshaping)
+    return {
+        "event_uri": event_uri,
+        "event_title":event_title, 
+        "country_code": country_code,
+        "total_count": len(db_articles),
+        "articles": db_articles  # SQLAlchemy 모델 객체 리스트가 자동 변환됩니다.
+    }
+
 
 
 @app.post("/admin/run-pipeline")
