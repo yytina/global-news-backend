@@ -15,8 +15,9 @@ DB_NAME = os.getenv("DB_NAME")
 SQLALCHEMY_DATABASE_URL = (
     f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
+# SQLALCHEMY_DATABASE_URL="postgresql+asyncpg://postgres:postgres@127.0.0.1:54322/postgres"
 # 비동기 엔진 생성
-engine = create_async_engine(SQLALCHEMY_DATABASE_URL , echo=True)
+engine = create_async_engine(SQLALCHEMY_DATABASE_URL , echo=True, connect_args={"statement_cache_size": 0})
 
 # 비동기 세션 생성기 (bind를 비동기 엔진으로 설정)
 AsyncSessionLocal = async_sessionmaker(
