@@ -88,7 +88,10 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], #리액트 서버의 주소 제한
+    allow_origins=[
+        "http://localhost:5173",
+        "https://global-news-frontend-xi.vercel.app"
+        ], #리액트 서버의 주소 제한
     allow_credentials=True, #쿠키 포함 허용
     allow_methods=["*"], #모든 HTTP 메서드 허용(GET,POST,PUT, DELETE)
     allow_headers=["*"], #모든 header 허용
