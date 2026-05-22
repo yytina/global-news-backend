@@ -15,6 +15,15 @@ from analysis_graph import create_analysis_graph
 from datetime import datetime, timedelta, timezone
 from constants import COUNTRY_MAP
 import pytz
+from langchain_core.runnables import RunnableConfig
+
+config = RunnableConfig(configurable={"thread_id": "test-run-1"})
+
+# 이제 모든 @traceable 함수가 자동으로 이 프로젝트로 기록됩니다.
+# await analysis_app.ainvoke({
+#     "event_uri": "대상_이벤트_URI",
+#     "target_date": "2026-05-22"
+# }, config=config)
 
 yesterday = datetime.now(timezone.utc) - timedelta(days=1)
 target_date_str = yesterday.strftime('%Y-%m-%d')
@@ -32,7 +41,7 @@ async def run_analysis_pipeline(event_uri: str):
     }
     
     print(f"🕵️ 이벤트 {event_uri} 분석 프로세스 시작...")
-    final_state = await analysis_app.ainvoke(initial_state)
+    final_state = await analysis_app.ainvoke(initial_state,config=config)
     
     # 🏁 로그 상세화
     article_count = len(final_state.get('analysis_results', []))
@@ -221,21 +230,21 @@ async def get_article_analysis_for_event_country(
 
 
 
-@app.post("/admin/run-pipeline")
-async def trigger_full_pipeline():
-    """수동으로 수집 및 분석 파이프라인 전체를 즉시 실행합니다."""
-    # 백그라운드 태스크로 돌려야 API 응답이 끊기지 않습니다.
-    async def run():
-        # uris = await run_daily_ingestion()
-        # uris=["spa-4195449", "eng-11650549", "eng-11650080"]
-        # uris=["eng-11651919"]
-        # spa-4197658
-        uris=["eng-11651919"]
-        for uri in uris:
-            await run_analysis_pipeline(uri)
+# @app.post("/admin/run-pipeline")
+# async def trigger_full_pipeline():
+#     """수동으로 수집 및 분석 파이프라인 전체를 즉시 실행합니다."""
+#     # 백그라운드 태스크로 돌려야 API 응답이 끊기지 않습니다.
+#     async def run():
+#         # uris = await run_daily_ingestion()
+#         # uris=["spa-4195449", "eng-11650549", "eng-11650080"]
+#         # uris=["eng-11651919"]
+#         # spa-4197658
+#         uris=["eng-11651919"]
+#         for uri in uris:
+#             await run_analysis_pipeline(uri)
             
-    asyncio.create_task(run())
-    return {"status": "Processing", "message": "수집 및 분석이 백그라운드에서 시작되었습니다."}
+#     asyncio.create_task(run())
+#     return {"status": "Processing", "message": "수집 및 분석이 백그라운드에서 시작되었습니다."}
 
 @app.get("/keep-alive")
 def keep_alive():

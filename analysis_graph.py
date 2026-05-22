@@ -12,6 +12,7 @@ from langchain_openai import ChatOpenAI
 import crud
 
 from langgraph.graph import StateGraph, START, END
+from langsmith import traceable
 from prompts import article_analysis_prompt, country_analysis_prompt
 
 load_dotenv()
@@ -63,6 +64,7 @@ async def node_load_articles(state: GraphState):
             "target_date": target_date  # State에 유지
         }
 
+@traceable(name="Article Analysis Agent")
 async def node_analyze_article(state: GraphState):
     article = state.get("current_article") or state.get("article")
     event = state.get("event_info")
@@ -113,6 +115,7 @@ async def node_analyze_article(state: GraphState):
         print(f"❌ 기사 분석 중 에러 (URI: {article_uri}): {e}")
         return {"analysis_results": []}
 
+@traceable(name="Country Analysis Agent")
 async def node_analyze_country(state: GraphState):
     results = state.get("analysis_results", [])
     event = state.get("event_info") or {}
