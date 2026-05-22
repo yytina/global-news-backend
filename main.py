@@ -180,6 +180,10 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
     return {
         "status": "SUCCESS",
         "event_uri": event.uri,
+        "epicenter":{
+            "country_uri": event.epicenter_country_uri,
+            "country_code": COUNTRY_MAP.get(event.epicenter_country_uri, "unknown")
+        },
         "title_main": event.title_main,
         "title_kr": title_kr,  # ✅ JSON에서 동적으로 가져온 한국어 제목
         "map_data": map_data
