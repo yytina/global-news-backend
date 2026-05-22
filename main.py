@@ -236,3 +236,7 @@ async def trigger_full_pipeline():
             
     asyncio.create_task(run())
     return {"status": "Processing", "message": "수집 및 분석이 백그라운드에서 시작되었습니다."}
+
+@app.get("/keep-alive")
+def keep_alive():
+    return {"message": "Server is alive"}
