@@ -49,7 +49,7 @@ async def daily_scheduler():
         now = datetime.now(seoul_tz)
         
         # 09:05분이 되면 실행
-        if now.hour == 9 and now.minute == 1:
+        if now.hour == 10 and now.minute == 22:
             print(f"⏰ [Scheduled Task] 09:01 수집 및 분석 시작!")
             try:
                 # 1단계: 수집 실행 (수집된 이벤트 URI 리스트를 반환하도록 ingestion_service 수정 필요)
