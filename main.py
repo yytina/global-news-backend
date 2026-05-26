@@ -19,12 +19,6 @@ from langchain_core.runnables import RunnableConfig
 
 config = RunnableConfig(configurable={"thread_id": "test-run-1"})
 
-# 이제 모든 @traceable 함수가 자동으로 이 프로젝트로 기록됩니다.
-# await analysis_app.ainvoke({
-#     "event_uri": "대상_이벤트_URI",
-#     "target_date": "2026-05-22"
-# }, config=config)
-
 yesterday = datetime.now(timezone.utc) - timedelta(days=1)
 target_date_str = yesterday.strftime('%Y-%m-%d')
 
@@ -107,25 +101,9 @@ app.add_middleware(
     expose_headers=["*"], #응답 헤더 노출
 )
 
-
-
-# =========================
-# CORS 설정
-# =========================
-# ⭐ 변경된 부분: 배포 환경에 맞는 CORS 설정
-# 배포 후 Vercel 주소가 확정되면 여기에 추가해야 합니다.
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=[
-#         "http://localhost:5173",
-#         "https://react-deployment-nu-teal.vercel.app" # 한글 주석: 프론트엔드 배포 주소를 추가하여 CORS 차단을 방지합니다.
-#     ],
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-#     expose_headers=["*"],
-# )
-
+@app.head("/keep-alive", status_code=200)
+def keep_alive():
+    return Response()
 
 # =========================
 # EVENTS
@@ -154,12 +132,9 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
     analyzed_articles = result["data"]
     print("analyzed_articles")
     print(len(analyzed_articles))
-    # 💡 [Gem's Logic] all_titles JSON에서 한국어 제목 추출
-    # all_titles는 dict 형태이므로 .get()으로 안전하게 접근합니다.
     all_titles = event.all_titles or {}
     title_kr = all_titles.get("kor") or all_titles.get("kor_kr") or event.title_main
     
-    # 국가별 그룹화 및 가중치 계산
     country_groups = {}
     for a in analyzed_articles:
         country_groups.setdefault(a.country_uri, []).append(a)
@@ -185,12 +160,11 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
             "country_code": COUNTRY_MAP.get(event.epicenter_country_uri, "unknown")
         },
         "title_main": event.title_main,
-        "title_kr": title_kr,  # ✅ JSON에서 동적으로 가져온 한국어 제목
+        "title_kr": title_kr,
         "map_data": map_data
     }
 
     
-# 1. response_model에서 List[]를 완전히 제거하여 단일 객체 스키마로 변경합니다.
 @app.get("/events/{event_uri}/countries/{country_code}", response_model=schemas.CountryAnalysisResponse)
 async def get_country_event_analysis(
     event_uri: str,
@@ -219,20 +193,18 @@ async def get_article_analysis_for_event_country(
     country_code: str,
     db: AsyncSessionLocal = Depends(get_db)
 ):
-    # 1. DB에서 조건에 맞는 기사 객체 리스트 조회
+
     db_articles = await crud.get_articles_by_event_and_country(db, event_uri, country_code)
     event = await crud.get_event_by_uri(db, event_uri)
     event_title = event.title_main if event else event_uri.replace("-", " ").capitalize()
-    # 2. Pydantic 스키마 규격에 맞춰 데이터 리셰이핑(Reshaping)
+
     return {
         "event_uri": event_uri,
         "event_title":event_title, 
         "country_code": country_code,
         "total_count": len(db_articles),
-        "articles": db_articles  # SQLAlchemy 모델 객체 리스트가 자동 변환됩니다.
+        "articles": db_articles  
     }
-
-
 
 # @app.post("/admin/run-pipeline")
 # async def trigger_full_pipeline():
@@ -249,7 +221,3 @@ async def get_article_analysis_for_event_country(
             
 #     asyncio.create_task(run())
 #     return {"status": "Processing", "message": "수집 및 분석이 백그라운드에서 시작되었습니다."}
-
-@app.get("/keep-alive")
-def keep_alive():
-    return {"message": "Server is alive"}
