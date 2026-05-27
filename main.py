@@ -71,7 +71,7 @@ async def daily_scheduler():
         now = datetime.now(seoul_tz)
         
         # 09:05분이 되면 실행 (현재 테스트 타임 09:05로 세팅됨)
-        if now.hour == 17 and now.minute == 5:
+        if now.hour == 17 and now.minute == 10:
             print(f"⏰ [Scheduled Task] 09:05 수집 및 분석 시작!")
             try:
                 # 1단계: 수집 실행
