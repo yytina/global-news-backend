@@ -230,7 +230,8 @@ async def get_article_analysis_for_event_country(
 @app.post("/admin/run-pipeline")
 async def trigger_full_pipeline(
     ingestion: bool = Query(True, description="True면 수집 후 분석, False면 수집 스킵 후 분석만 실행"),
-    admin_token: str = Depends(verify_admin_token)
+    admin_token: str = Depends(verify_admin_token),
+    db: AsyncSessionLocal = Depends(get_db)
 ):
     """
     인증된 관리자만 수동으로 수집 및 분석 파이프라인을 즉시 실행합니다.
@@ -249,10 +250,7 @@ async def trigger_full_pipeline(
             event_uris = await run_daily_ingestion()
         else:
             print("ℹ️ [수동 트리거] 수집 단계를 스킵합니다. 기존 소스 데이터를 기반으로 분석만 수행합니다.")
-            # 🎯 [필독] 수집을 스킵할 경우, 기존 DB에서 분석 대상(예: PENDING 상태)인 
-            # 이벤트 URI 리스트를 동적으로 가져오는 레포지토리 로직이 필요할 수 있습니다.
-            # 예: event_uris = await crud.get_pending_event_uris(db, dynamic_target_date)
-            # 현재는 디버깅을 위해 하드코딩된 테스트 URI나 기존 조회 로직을 연동해야 합니다.
+            event_uris = await crud.get_yesterday_events(db)
             
         if event_uris:
             print(f"🚀 [수동 트리거] {len(event_uris)}개 이벤트 분석 가동 ({dynamic_target_date})...")
