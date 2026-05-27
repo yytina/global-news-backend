@@ -70,9 +70,9 @@ async def daily_scheduler():
     while True:
         now = datetime.now(seoul_tz)
         
-        # 09:05분이 되면 실행 (현재 테스트 타임 11:15로 세팅됨)
-        if now.hour == 11 and now.minute == 20:
-            print(f"⏰ [Scheduled Task] 11:20 수집 및 분석 시작!")
+        # 09:05분이 되면 실행 (현재 테스트 타임 09:05로 세팅됨)
+        if now.hour == 16 and now.minute == 53:
+            print(f"⏰ [Scheduled Task] 09:05 수집 및 분석 시작!")
             try:
                 # 1단계: 수집 실행
                 event_uris = await run_daily_ingestion() 
