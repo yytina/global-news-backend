@@ -25,6 +25,25 @@ target_date_str = yesterday.strftime('%Y-%m-%d')
 
 analysis_app = create_analysis_graph()
 
+from fastapi import Security
+from fastapi.security.api_key import APIKeyHeader
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY")
+API_KEY_NAME = "X-Admin-Token"
+
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
+
+async def verify_admin_token(api_key: str = Security(api_key_header)):
+    if api_key != ADMIN_SECRET_KEY:
+        raise HTTPException(
+            status_code=403, 
+            detail="Forbidden: Invalid Admin Token"
+        )
+    return api_key
+
 async def run_analysis_pipeline(event_uri: str):
     initial_state = {
         "target_date": target_date_str,
@@ -208,18 +227,45 @@ async def get_article_analysis_for_event_country(
         "articles": db_articles  
     }
 
-# @app.post("/admin/run-pipeline")
-# async def trigger_full_pipeline():
-#     """수동으로 수집 및 분석 파이프라인 전체를 즉시 실행합니다."""
-#     # 백그라운드 태스크로 돌려야 API 응답이 끊기지 않습니다.
-#     async def run():
-#         # uris = await run_daily_ingestion()
-#         # uris=["spa-4195449", "eng-11650549", "eng-11650080"]
-#         # uris=["eng-11651919"]
-#         # spa-4197658
-#         uris=["eng-11651919"]
-#         for uri in uris:
-#             await run_analysis_pipeline(uri)
+@app.post("/admin/run-pipeline")
+async def trigger_full_pipeline(
+    ingestion: bool = Query(True, description="True면 수집 후 분석, False면 수집 스킵 후 분석만 실행"),
+    admin_token: str = Depends(verify_admin_token)
+):
+    """
+    인증된 관리자만 수동으로 수집 및 분석 파이프라인을 즉시 실행합니다.
+    ingestion=False인 경우, 수집기를 거치지 않고 바로 기존 데이터 분석으로 진입합니다.
+    """
+    async def run():
+        seoul_tz = pytz.timezone('Asia/Seoul')
+        now = datetime.now(seoul_tz)
+        yesterday = now - timedelta(days=1)
+        dynamic_target_date = yesterday.strftime('%Y-%m-%d')
+        
+        event_uris = []
+
+        if ingestion:
+            print("🚀 [수동 트리거] 데이터 수집(Ingestion) 시작...")
+            event_uris = await run_daily_ingestion()
+        else:
+            print("ℹ️ [수동 트리거] 수집 단계를 스킵합니다. 기존 소스 데이터를 기반으로 분석만 수행합니다.")
+            # 🎯 [필독] 수집을 스킵할 경우, 기존 DB에서 분석 대상(예: PENDING 상태)인 
+            # 이벤트 URI 리스트를 동적으로 가져오는 레포지토리 로직이 필요할 수 있습니다.
+            # 예: event_uris = await crud.get_pending_event_uris(db, dynamic_target_date)
+            # 현재는 디버깅을 위해 하드코딩된 테스트 URI나 기존 조회 로직을 연동해야 합니다.
             
-#     asyncio.create_task(run())
-#     return {"status": "Processing", "message": "수집 및 분석이 백그라운드에서 시작되었습니다."}
+        if event_uris:
+            print(f"🚀 [수동 트리거] {len(event_uris)}개 이벤트 분석 가동 ({dynamic_target_date})...")
+            for uri in event_uris:
+                try:
+                    await run_analysis_pipeline(uri, dynamic_target_date)
+                except Exception as analysis_err:
+                    print(f"❌ 이벤트 {uri} 분석 중 에러: {analysis_err}")
+        else:
+            print("ℹ️ [수동 트리거] 분석할 이벤트 URI가 존재하지 않아 파이프라인을 종료합니다.")
+            
+    asyncio.create_task(run())
+    return {
+        "status": "Processing", 
+        "message": f"인증 완료. 백그라운드 태스크가 시작되었습니다. (수집 여부: {ingestion})"
+    }
