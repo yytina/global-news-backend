@@ -65,7 +65,7 @@ async def get_yesterday_events(session: AsyncSession):
     yesterday_utc = (datetime.now(timezone.utc) - timedelta(days=1)).date()
     
     # 2. 쿼리 작성 (event_date가 어제와 일치하는 것들)
-    query = select(Event).where(Event.event_date == yesterday_utc)
+    query = select(Event).where(Event.date == yesterday_utc)
     
     # 3. 실행 및 결과 반환
     result = await session.execute(query)
