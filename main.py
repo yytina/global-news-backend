@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from constants import COUNTRY_MAP
 import pytz
 from langchain_core.runnables import RunnableConfig
+import traceback
 
 config = RunnableConfig(configurable={"thread_id": "test-run-1"})
 
@@ -48,32 +49,33 @@ async def run_analysis_pipeline(event_uri: str):
 async def daily_scheduler():
     seoul_tz = pytz.timezone('Asia/Seoul')
     while True:
-        # 한국 시간 기준 현재 시각
         now = datetime.now(seoul_tz)
         
-        # 09:05분이 되면 실행
-        if now.hour == 11 and now.minute == 0:
-            print(f"⏰ [Scheduled Task] 09:05 수집 및 분석 시작!")
+        # 09:05분이 되면 실행 (현재 테스트 타임 11:15로 세팅됨)
+        if now.hour == 11 and now.minute == 20:
+            print(f"⏰ [Scheduled Task] 11:20 수집 및 분석 시작!")
             try:
-                # 1단계: 수집 실행 (수집된 이벤트 URI 리스트를 반환하도록 ingestion_service 수정 필요)
+                # 1단계: 수집 실행
                 event_uris = await run_daily_ingestion() 
+                print(f"🔍 DEBUG: run_daily_ingestion 반환 결과 -> {event_uris}") # 수집기 결과 추적용
                 
                 if event_uris:
                     print(f"✅ {len(event_uris)}개 이벤트 수집 완료. 분석 파이프라인 가동...")
                     
-                    # 2단계: 각 이벤트별로 분석 실행
                     for uri in event_uris:
                         try:
                             await run_analysis_pipeline(uri)
                         except Exception as analysis_err:
-                            print(f"❌ 이벤트 {uri} 분석 중 에러: {analysis_err}")
+                            print(f"❌ 이벤트 {uri} 분석 중 에러 발생!")
+                            traceback.print_exc() # 🎯 [핵심] 상세 스택 트레이스백 강제 출력
                 else:
                     print("ℹ️ 오늘 수집된 새로운 이벤트가 없습니다.")
 
             except Exception as e:
-                print(f"❌ 스케줄러 전체 프로세스 에러: {e}")
+                print(f"❌ 스케줄러 전체 프로세스 치명적 에러:")
+                traceback.print_exc() # 🎯 [핵심] 상위 스케줄러가 터진 위치와 라인을 정확히 추적
             
-            await asyncio.sleep(60)  # 중복 실행 방지
+            await asyncio.sleep(60)
         await asyncio.sleep(10)
 
 
