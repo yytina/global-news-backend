@@ -71,11 +71,12 @@ async def daily_scheduler():
         now = datetime.now(seoul_tz)
         
         # 09:05분이 되면 실행 (현재 테스트 타임 09:05로 세팅됨)
-        if now.hour == 16 and now.minute == 53:
+        if now.hour == 17 and now.minute == 5:
             print(f"⏰ [Scheduled Task] 09:05 수집 및 분석 시작!")
             try:
                 # 1단계: 수집 실행
-                event_uris = await run_daily_ingestion() 
+                # event_uris = await run_daily_ingestion() 
+                event_uris = ["eng-11685618", "eng-11684865", "eng-11684730"]
                 print(f"🔍 DEBUG: run_daily_ingestion 반환 결과 -> {event_uris}") # 수집기 결과 추적용
                 
                 if event_uris:
@@ -260,7 +261,7 @@ async def trigger_full_pipeline(
                 try:
                     # 이벤트 객체 전체를 가져오면 세션이 닫힌 후 Lazy Loading 에러가 날 수 있으므로, 
                     # 필요한 'uri' 문자열 리스트만 깔끔하게 select하도록 내부 로직을 확인하세요.
-                    event_uris = await get_events_by_date(session, dynamic_target_date)
+                    event_uris = await crud.get_yesterday_events(session)
                     print(f"🔍 {dynamic_target_date} 날짜의 이벤트를 {len(event_uris)}개 찾았습니다.")
                 except Exception as db_err:
                     print(f"❌ 백그라운드 DB 조회 중 에러 발생: {db_err}")
