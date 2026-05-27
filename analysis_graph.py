@@ -82,12 +82,23 @@ async def node_load_articles(state: GraphState):
 async def node_analyze_article(state: GraphState):
     article = state.get("current_article")
     event = state.get("event_info")
-    article_uri = article.get("uri", "Unknown") if article else "Unknown"
     
     if not article:
         return {"analysis_results": []}
 
-    country_uri = article.get("country_uri")
+    # 🎯 [핵심 개선] ORM 객체(Attribute)와 dict(Key) 형태 모두 대응 가능한 방어적 추출 함수 정의
+    def safe_get(obj, key, default=None):
+        if isinstance(obj, dict): 
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+
+    # safe_get을 사용하여 ORM 모델 인스턴스에서 안전하게 속성 값 추출
+    article_uri = safe_get(article, "uri", "Unknown") 
+    article_url = safe_get(article, "url", "Unknown") 
+    country_uri = safe_get(article, "country_uri")
+    title = safe_get(article, "title", "No Title")
+    body = safe_get(article, "body", "")
+
     country_code = COUNTRY_MAP.get(country_uri, "unknown")
 
     # 가용성 확보를 위한 세마포어 가드 작동
@@ -97,9 +108,9 @@ async def node_analyze_article(state: GraphState):
             raw_response = await chain.ainvoke({
                 "event_title_main": event.get("title_main", "No Title"),
                 "event_summary_main": event.get("summary_main", ""),
-                "article_title": article.get("title", "No Title"),
-                "article_url": article.get("url", "Unknown"), 
-                "article_body": article.get("body", "")
+                "article_title": title,
+                "article_url": article_url, 
+                "article_body": body
             })
             
             cleaned_json = raw_response.replace("```json", "").replace("```", "").strip()
