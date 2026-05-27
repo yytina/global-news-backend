@@ -256,7 +256,7 @@ async def trigger_full_pipeline(
             print(f"🚀 [수동 트리거] {len(event_uris)}개 이벤트 분석 가동 ({dynamic_target_date})...")
             for uri in event_uris:
                 try:
-                    await run_analysis_pipeline(uri, dynamic_target_date)
+                    await run_analysis_pipeline(uri)
                 except Exception as analysis_err:
                     print(f"❌ 이벤트 {uri} 분석 중 에러: {analysis_err}")
         else:
