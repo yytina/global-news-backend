@@ -227,17 +227,21 @@ async def get_article_analysis_for_event_country(
         "articles": db_articles  
     }
 
+from fastapi import Query, Depends, BackgroundTasks # 👈 BackgroundTasks 주입
+
 @app.post("/admin/run-pipeline")
 async def trigger_full_pipeline(
+    background_tasks: BackgroundTasks, # 👈 파라미터 추가
     ingestion: bool = Query(True, description="True면 수집 후 분석, False면 수집 스킵 후 분석만 실행"),
-    admin_token: str = Depends(verify_admin_token),
-    db: AsyncSessionLocal = Depends(get_db)
+    admin_token: str = Depends(verify_admin_token)
 ):
     """
-    인증된 관리자만 수동으로 수집 및 분석 파이프라인을 즉시 실행합니다.
-    ingestion=False인 경우, 수집기를 거치지 않고 바로 기존 데이터 분석으로 진입합니다.
+    FastAPI 내장 BackgroundTasks를 활용해 
+    요청을 컨텍스트 안전하게 백그라운드로 넘기고 즉시 200을 반환합니다.
     """
-    async def run():
+    
+    # 내부 함수에서 더 이상 상위 스코프의 변수나 의존성에 결합되지 않도록 격리
+    async def run_task(should_ingest: bool):
         seoul_tz = pytz.timezone('Asia/Seoul')
         now = datetime.now(seoul_tz)
         yesterday = now - timedelta(days=1)
@@ -245,15 +249,25 @@ async def trigger_full_pipeline(
         
         event_uris = []
 
-        if ingestion:
+        if should_ingest:
             print("🚀 [수동 트리거] 데이터 수집(Ingestion) 시작...")
             event_uris = await run_daily_ingestion()
         else:
-            print("ℹ️ [수동 트리거] 수집 단계를 스킵합니다. 기존 소스 데이터를 기반으로 분석만 수행합니다.")
-            event_uris = await crud.get_yesterday_events(db)
+            print("ℹ️ [수동 트리거] 수집 단계를 스킵합니다. 새 세션으로 기존 소스 데이터를 조회합니다.")
             
+            # 여기서 확실하게 독립된 컨텍스트 세션을 생성합니다.
+            async with AsyncSessionLocal() as session:
+                try:
+                    # 이벤트 객체 전체를 가져오면 세션이 닫힌 후 Lazy Loading 에러가 날 수 있으므로, 
+                    # 필요한 'uri' 문자열 리스트만 깔끔하게 select하도록 내부 로직을 확인하세요.
+                    event_uris = await get_events_by_date(session, dynamic_target_date)
+                    print(f"🔍 {dynamic_target_date} 날짜의 이벤트를 {len(event_uris)}개 찾았습니다.")
+                except Exception as db_err:
+                    print(f"❌ 백그라운드 DB 조회 중 에러 발생: {db_err}")
+                    return
+
         if event_uris:
-            print(f"🚀 [수동 트리거] {len(event_uris)}개 이벤트 분석 가동 ({dynamic_target_date})...")
+            print(f"🚀 [수동 트리거] {len(event_uris)}개 이벤트 분석 가동...")
             for uri in event_uris:
                 try:
                     await run_analysis_pipeline(uri)
@@ -261,9 +275,11 @@ async def trigger_full_pipeline(
                     print(f"❌ 이벤트 {uri} 분석 중 에러: {analysis_err}")
         else:
             print("ℹ️ [수동 트리거] 분석할 이벤트 URI가 존재하지 않아 파이프라인을 종료합니다.")
-            
-    asyncio.create_task(run())
+
+    # 🎯 핵심: asyncio.create_task 대신 FastAPI 시스템에 백그라운드 작업 등록
+    background_tasks.add_task(run_task, ingestion)
+    
     return {
         "status": "Processing", 
-        "message": f"인증 완료. 백그라운드 태스크가 시작되었습니다. (수집 여부: {ingestion})"
+        "message": f"인증 완료. BackgroundTasks 허브를 통해 작업이 예약되었습니다. (수집 여부: {ingestion})"
     }
