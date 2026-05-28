@@ -210,11 +210,10 @@ async def get_country_event_analysis(
 async def get_article_analysis_for_event_country(
     event_uri: str,
     country_code: str,
-    date: str = Depends(get_target_date), 
     db: AsyncSessionLocal = Depends(get_db)
 ):
 
-    db_articles = await crud.get_articles_by_event_and_country(db, event_uri, country_code, date)
+    db_articles = await crud.get_articles_by_event_and_country(db, event_uri, country_code)
     event = await crud.get_event_by_uri(db, event_uri)
     event_title = event.title_main if event else event_uri.replace("-", " ").capitalize()
 
