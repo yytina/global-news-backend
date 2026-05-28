@@ -337,3 +337,14 @@ async def get_event_country_analysis(
     print(f"result:{result}")
     # 한 건만 정확히 가져오거나 없으면 None 리턴
     return result.scalar_one_or_none()
+
+async def get_all_country_analyses_by_event(db, event_uri: str):
+    """
+    특정 사건(event_uri)에 대해 파이프라인이 생성하여 저장해 둔 
+    모든 국가별 정세 분석 리포트 행(Row)들을 일괄 조회합니다.
+    """
+    stmt = select(CountryEventAnalysis).where(CountryEventAnalysis.event_uri == event_uri)
+    result = await db.execute(stmt)
+    
+    # 레코드 객체 리스트 반환 (.scalars().all() 활용)
+    return result.scalars().all()
