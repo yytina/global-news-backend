@@ -196,7 +196,7 @@ async def get_articles_by_event_and_country(db, event_uri: str, country_code: st
     # 1. 입력받은 country_code(예: 'us')에 대응하는 모든 위키피디아 URL 추출
     date_obj = get_date_from_str(target_date)
     target_code = country_code.lower()
-    
+
     matched_uris = [
         wiki_url for wiki_url, code in COUNTRY_MAP.items() 
         if code == target_code
@@ -317,22 +317,19 @@ async def get_event_analysis_package(db: AsyncSession, event_uri: str):
 async def get_event_country_analysis(
     session: AsyncSession, 
     event_uri: str, 
-    country_code: str, 
-    target_date: str = None
+    country_code: str
 ) -> CountryEventAnalysis | None:
     """
     삼중 복합 필터(사건, 국가, 날짜)를 기준으로 
     특정 국가의 상세 분석 데이터를 단일 Row로 조회합니다.
     """
-    date_obj = get_date_from_str(target_date)
     
     stmt = (
         select(CountryEventAnalysis)
         .where(
             CountryEventAnalysis.event_uri == event_uri,
             # 대소문자 불일치로 인한 쿼리 누락 방지를 위해 소문자 보정 적용
-            CountryEventAnalysis.country_code == country_code.lower(),
-            CountryEventAnalysis.date == date_obj
+            CountryEventAnalysis.country_code == country_code.lower()
         )
     )
     

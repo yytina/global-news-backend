@@ -193,15 +193,14 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
 async def get_country_event_analysis(
     event_uri: str,
     country_code: str,
-    date: str = Depends(get_target_date),
     db: AsyncSessionLocal = Depends(get_db)
 ):
-    result = await crud.get_event_country_analysis(db, event_uri, country_code, date)
+    result = await crud.get_event_country_analysis(db, event_uri, country_code)
     
     if result is None:
         raise HTTPException(
             status_code=404, 
-            detail=f"Analysis for country '{country_code}' on date '{date}' not found."
+            detail=f"Analysis for country '{country_code}' not found."
         )
         
     return result
