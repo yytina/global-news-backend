@@ -32,11 +32,11 @@ API_KEY_NAME = "X-Admin-Token"
 
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
 
-def get_target_date(date: Optional[str] = Query(None, description="조회 날짜 (YYYY-MM-DD), 입력하지 않으면 어제 날짜로 자동 지정")) -> str:
+def get_target_date(date: Optional[str] = Query(None, description="조회 날짜 (YYYY-MM-DD), 입력하지 않으면 UTC 어제 날짜로 자동 지정")) -> str:
     if date is None:
-        seoul_tz = pytz.timezone('Asia/Seoul')
-        dynamic_yesterday = datetime.now(seoul_tz) - timedelta(days=1)
-        date = dynamic_yesterday.strftime('%Y-%m-%d')
+        # 🎯 Get the current time in UTC, then subtract 1 day
+        utc_yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        date = utc_yesterday.strftime('%Y-%m-%d')
     return date
 
 async def verify_admin_token(api_key: str = Security(api_key_header)):
