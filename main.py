@@ -147,34 +147,34 @@ async def get_top_events(
 
 @app.get("/events/{event_uri}/map-data")
 async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get_db)):
+    # 1. 사건 기본 정보 로드
     result = await crud.get_event_analysis_package(db, event_uri)
-    
     if result["status"] != "SUCCESS":
         return result
 
     event = result["event"] 
-    analyzed_articles = result["data"]
-    print("analyzed_articles")
-    print(len(analyzed_articles))
     all_titles = event.all_titles or {}
     title_kr = all_titles.get("kor") or all_titles.get("kor_kr") or event.title_main
     
-    country_groups = {}
-    for a in analyzed_articles:
-        country_groups.setdefault(a.country_uri, []).append(a)
+    # 2. [핵심 변경] 런타임 계산을 전면 폐기하고, DB의 Country Analysis 테이블에서 정제된 결과셋을 직접 fetch
+    # crud.get_all_country_analyses_by_event 함수를 새로 매핑하거나 기존 객체 풀에서 유도합니다.
+    db_country_reports = await crud.get_all_country_analyses_by_event(db, event_uri)
     
     map_data = []
-    for country_uri, articles in country_groups.items():
-        print(country_uri)
-        weighted_indices = calculate_weighted_index(articles[:5])
-        if weighted_indices:
-            map_data.append({
-                "country_uri": country_uri,
-                "country_code": COUNTRY_MAP.get(country_uri, "unknown"), # 👈 추가!
-                "sentiment": round(weighted_indices["sentiment"], 4),
-                "all_indices": weighted_indices
-            })
-    print(map_data)
+    for report in db_country_reports:
+        # report 객체는 두 번째 스크린샷 모달이 사용하는 score_sentiment(-0.50)와 완벽히 동일한 원천입니다.
+        map_data.append({
+            "country_uri": report.country_uri, # 만약 DB에 uri가 없다면 mapping 테이블 활용
+            "country_code": report.country_code.toLowerCase(),
+            "sentiment": round(report.score_sentiment, 4), # 👈 -0.50이 지도로 직접 꽂힘
+            "all_indices": {
+                "sentiment": report.score_sentiment,
+                "objectivity": report.score_objectivity,
+                "urgency": report.score_urgency,
+                "credibility": report.score_credibility,
+                "sensationalism": report.score_sensationalism
+            }
+        })
             
     return {
         "status": "SUCCESS",
@@ -185,7 +185,7 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
         },
         "title_main": event.title_main,
         "title_kr": title_kr,
-        "map_data": map_data
+        "map_data": map_data 
     }
 
     
