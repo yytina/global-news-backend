@@ -164,8 +164,7 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
     for report in db_country_reports:
         # report 객체는 두 번째 스크린샷 모달이 사용하는 score_sentiment(-0.50)와 완벽히 동일한 원천입니다.
         map_data.append({
-            "country_uri": report.country_uri, # 만약 DB에 uri가 없다면 mapping 테이블 활용
-            "country_code": report.country_code.toLowerCase(),
+            "country_code": report.country_code,
             "sentiment": round(report.score_sentiment, 4), # 👈 -0.50이 지도로 직접 꽂힘
             "all_indices": {
                 "sentiment": report.score_sentiment,
@@ -180,7 +179,6 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
         "status": "SUCCESS",
         "event_uri": event.uri,
         "epicenter":{
-            "country_uri": event.epicenter_country_uri,
             "country_code": COUNTRY_MAP.get(event.epicenter_country_uri, "unknown")
         },
         "title_main": event.title_main,
