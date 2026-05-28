@@ -182,6 +182,7 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
             "country_code": COUNTRY_MAP.get(event.epicenter_country_uri, "unknown")
         },
         "title_main": event.title_main,
+        "summary_main": event.summary_main,
         "title_kr": title_kr,
         "map_data": map_data 
     }
