@@ -17,24 +17,27 @@ from constants import COUNTRY_MAP
 import pytz
 from langchain_core.runnables import RunnableConfig
 import traceback
-
-config = RunnableConfig(configurable={"thread_id": "test-run-1"})
-
-yesterday = datetime.now(timezone.utc) - timedelta(days=1)
-target_date_str = yesterday.strftime('%Y-%m-%d')
-
-analysis_app = create_analysis_graph()
-
 from fastapi import Security
 from fastapi.security.api_key import APIKeyHeader
 import os
 from dotenv import load_dotenv
 load_dotenv()
 
+config = RunnableConfig(configurable={"thread_id": "test-run-1"})
+
+analysis_app = create_analysis_graph()
+
 ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY")
 API_KEY_NAME = "X-Admin-Token"
 
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
+
+def get_target_date(date: Optional[str] = Query(None, description="조회 날짜 (YYYY-MM-DD), 입력하지 않으면 어제 날짜로 자동 지정")) -> str:
+    if date is None:
+        seoul_tz = pytz.timezone('Asia/Seoul')
+        dynamic_yesterday = datetime.now(seoul_tz) - timedelta(days=1)
+        date = dynamic_yesterday.strftime('%Y-%m-%d')
+    return date
 
 async def verify_admin_token(api_key: str = Security(api_key_header)):
     if api_key != ADMIN_SECRET_KEY:
@@ -45,6 +48,9 @@ async def verify_admin_token(api_key: str = Security(api_key_header)):
     return api_key
 
 async def run_analysis_pipeline(event_uri: str):
+    seoul_tz = pytz.timezone('Asia/Seoul')
+    dynamic_yesterday = datetime.now(seoul_tz) - timedelta(days=1)
+    target_date_str = dynamic_yesterday.strftime('%Y-%m-%d')
     initial_state = {
         "target_date": target_date_str,
         "event_uri": event_uri,
@@ -132,15 +138,11 @@ def keep_alive():
 # =========================
 @app.get("/events/top", response_model=List[schemas.EventSummary])
 async def get_top_events(
-    date: Optional[str] = Query(target_date_str, description="date"),
     number: int = Query(3, description="number"),
+    date: str = Depends(get_target_date), 
     db: AsyncSessionLocal = Depends(get_db)
 ):
-    """
-    특정 날짜(기본: 어제)의 기사 수 기준 상위 N개 이벤트를 요약본으로 가져옵니다.
-    """
     events = await crud.get_top_daily_events(db, limit=number, target_date=date)
-    
     return events
 
 @app.get("/events/{event_uri}/map-data")
@@ -191,14 +193,12 @@ async def get_event_map_data(event_uri: str, db: AsyncSessionLocal = Depends(get
 async def get_country_event_analysis(
     event_uri: str,
     country_code: str,
-    date: Optional[str] = Query(target_date_str, description="date"),
+    date: str = Depends(get_target_date),
     db: AsyncSessionLocal = Depends(get_db)
 ):
     result = await crud.get_event_country_analysis(db, event_uri, country_code, date)
     
-    # 🎯 데이터가 존재하지 않을 때 (None일 때) 404 에러를 명시적으로 반환합니다.
     if result is None:
-        from fastapi import HTTPException
         raise HTTPException(
             status_code=404, 
             detail=f"Analysis for country '{country_code}' on date '{date}' not found."
@@ -213,10 +213,11 @@ async def get_country_event_analysis(
 async def get_article_analysis_for_event_country(
     event_uri: str,
     country_code: str,
+    date: str = Depends(get_target_date), 
     db: AsyncSessionLocal = Depends(get_db)
 ):
 
-    db_articles = await crud.get_articles_by_event_and_country(db, event_uri, country_code)
+    db_articles = await crud.get_articles_by_event_and_country(db, event_uri, country_code, date)
     event = await crud.get_event_by_uri(db, event_uri)
     event_title = event.title_main if event else event_uri.replace("-", " ").capitalize()
 

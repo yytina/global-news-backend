@@ -192,9 +192,11 @@ async def get_analyzed_articles_by_event(db: AsyncSession, event_uri: str):
     )
     return result.scalars().all() # scalar()가 아닌 scalars().all()로 객체 리스트 반환
 
-async def get_articles_by_event_and_country(db, event_uri: str, country_code: str):
+async def get_articles_by_event_and_country(db, event_uri: str, country_code: str, target_date: str = None):
     # 1. 입력받은 country_code(예: 'us')에 대응하는 모든 위키피디아 URL 추출
+    date_obj = get_date_from_str(target_date)
     target_code = country_code.lower()
+    
     matched_uris = [
         wiki_url for wiki_url, code in COUNTRY_MAP.items() 
         if code == target_code
@@ -210,7 +212,8 @@ async def get_articles_by_event_and_country(db, event_uri: str, country_code: st
         select(Article)
         .where(
             Article.event_uri == event_uri,
-            Article.country_uri.in_(matched_uris)  # 🎯 매핑된 모든 URL 조건 수용 (http/https 둘 다 방어)
+            Article.country_uri.in_(matched_uris),
+            Article.date == date_obj
         )
         .order_by(Article.date.desc())
     )
