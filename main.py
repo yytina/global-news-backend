@@ -48,20 +48,20 @@ async def verify_admin_token(api_key: str = Security(api_key_header)):
     return api_key
 
 async def run_analysis_pipeline(event_uri: str):
-    seoul_tz = pytz.timezone('Asia/Seoul')
-    dynamic_yesterday = datetime.now(seoul_tz) - timedelta(days=1)
-    target_date_str = dynamic_yesterday.strftime('%Y-%m-%d')
+    utc_yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+    target_date_str = utc_yesterday.strftime('%Y-%m-%d')
+    
     initial_state = {
         "target_date": target_date_str,
         "event_uri": event_uri,
         "articles": [],
         "analysis_results": [],
-        "country_analysis_results": [], # 👈 초기 상태에 추가
+        "country_analysis_results": [],
         "event_info": {}
     }
     
-    print(f"🕵️ 이벤트 {event_uri} 분석 프로세스 시작...")
-    final_state = await analysis_app.ainvoke(initial_state,config=config)
+    print(f"🕵️ 이벤트 {event_uri} 분석 프로세스 시작... (Target UTC Date: {target_date_str})")
+    final_state = await analysis_app.ainvoke(initial_state, config=config)
     
     # 🏁 로그 상세화
     article_count = len(final_state.get('analysis_results', []))
