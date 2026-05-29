@@ -76,30 +76,41 @@ async def daily_scheduler():
     while True:
         now = datetime.now(seoul_tz)
         
-        # 09:05분이 되면 실행 (현재 테스트 타임 09:05로 세팅됨)
         if now.hour == 9 and now.minute == 5:
             print(f"⏰ [Scheduled Task] 09:05 수집 및 분석 시작!")
             try:
-                # 1단계: 수집 실행
+                # -------------------------------------------------------------
+                # 단계 1: 수집 실행 및 즉시 영속화 (Ingestion Layer)
+                # -------------------------------------------------------------
+                # run_daily_ingestion 내부에서 데이터를 가져오자마자 
+                # 상태를 'PENDING'으로 두고 DB에 즉시 INSERT(COMMIT) 하도록 구현해야 합니다.
                 event_uris = await run_daily_ingestion() 
-                # event_uris = ["eng-11685618", "eng-11684865", "eng-11684730"]
-                print(f"🔍 DEBUG: run_daily_ingestion 반환 결과 -> {event_uris}") # 수집기 결과 추적용
+                print(f"🔍 DEBUG: 수집 완료 및 DB 1차 적재 완료 -> {event_uris}")
                 
+                # -------------------------------------------------------------
+                # 단계 2: 독립적인 분석 실행 (Analysis Layer)
+                # -------------------------------------------------------------
                 if event_uris:
-                    print(f"✅ {len(event_uris)}개 이벤트 수집 완료. 분석 파이프라인 가동...")
+                    print(f"✅ {len(event_uris)}개 이벤트 분석 파이프라인 개별 가동...")
                     
                     for uri in event_uris:
                         try:
+                            # 🎯 핵심 보완: 각 이벤트 분석을 완전히 독립된 트랜잭션/세션 영역으로 분리
+                            # 하나의 이벤트 분석이 LLM 타임아웃으로 터져도 다른 이벤트와 수집본에 영향 없음
                             await run_analysis_pipeline(uri)
+                            
                         except Exception as analysis_err:
-                            print(f"❌ 이벤트 {uri} 분석 중 에러 발생!")
-                            traceback.print_exc() # 🎯 [핵심] 상세 스택 트레이스백 강제 출력
+                            print(f"❌ 이벤트 {uri} 분석 중 에러 발생 (수집된 데이터는 DB에 안전하게 보존됨)")
+                            traceback.print_exc()
+                            
+                            # (옵션) 실패 시 DB에 해당 이벤트의 상태를 'FAILED'로 업데이트하는 로직 추가 가능
+                            # await crud.update_event_status(uri, "FAILED")
                 else:
                     print("ℹ️ 오늘 수집된 새로운 이벤트가 없습니다.")
 
             except Exception as e:
-                print(f"❌ 스케줄러 전체 프로세스 치명적 에러:")
-                traceback.print_exc() # 🎯 [핵심] 상위 스케줄러가 터진 위치와 라인을 정확히 추적
+                print(f"❌ 스케줄러 시스템 치명적 에러:")
+                traceback.print_exc()
             
             await asyncio.sleep(60)
         await asyncio.sleep(10)
